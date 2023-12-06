@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns
 from prettytable import PrettyTable
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 
 
 # Function to create PrettyTable from DataFrame
@@ -28,7 +29,6 @@ def create_and_save_plot(plot_function, *args, **kwargs):
 df = pd.read_csv('operations.csv')
 print(f'There are {len(df)} observations in the dataset')
 print(df.head())
-
 
 # Data preprocessing
 
@@ -71,11 +71,6 @@ df_top_target_types = df_top_theaters_of_ops[
     df_top_theaters_of_ops['Target Type'].isin(top_target_types)]
 print('DataFrame that further only includes the top 10 target types:\n', df_top_target_types)
 
-# Drop missing values for categorical features
-# df_reduced = df.dropna(subset=categorical_features)
-# df_top_theaters_of_ops_reduced = df_top_target_types.dropna(
-#     subset=categorical_features)
-
 
 # Outlier detection and removal (IQR method)
 def remove_outliers(df, column_name):
@@ -93,12 +88,16 @@ df_total_weight_and_altitude_outlier_removed = remove_outliers(
     df_total_weight_outlier_removed, 'Altitude (Hundreds of Feet)')
 df_top_theaters_of_ops_total_weight_outlier_removed = remove_outliers(
     df_top_theaters_of_ops, 'Total Weight (Tons)')
+df_top_target_types_total_weight_outlier_removed = remove_outliers(
+    df_top_target_types, 'Total Weight (Tons)')
 df_high_explosives_weight_outlier_removed = remove_outliers(df, 'High Explosives Weight (Tons)')
 df_high_explosives_weight_and_altitude_outlier_removed = remove_outliers(
     df_high_explosives_weight_outlier_removed, 'Altitude (Hundreds of Feet)')
 df_all_outlier_removed = remove_outliers(
     df_high_explosives_weight_and_altitude_outlier_removed, 'Total Weight (Tons)')
 
+
+# Data Visualization
 # Line plot:
 # Trends over time
 df['Mission Date'] = pd.to_datetime(df['Mission Date'])
@@ -166,8 +165,8 @@ create_and_save_plot(sns.histplot, x='High Explosives Weight (Tons)',
 plt.title('Pair Plot of Total Weight, Altitude, and High Explosives Weight')
 create_and_save_plot(sns.pairplot,
                      df_all_outlier_removed.sample(1000)[['Total Weight (Tons)',
-                         'Altitude (Hundreds of Feet)',
-                         'High Explosives Weight (Tons)']])
+                                                          'Altitude (Hundreds of Feet)',
+                                                          'High Explosives Weight (Tons)']])
 
 # Heatmap with color bar
 plt.title('Correlation Heatmap of Numerical Features')
@@ -216,3 +215,41 @@ sns.kdeplot(data=df_total_weight_outlier_removed.sample(10000, random_state=1),
 create_and_save_plot(sns.rugplot,
                      x=df_total_weight_outlier_removed[
                          'Total Weight (Tons)'].sample(10000, random_state=1))
+
+# 3D plot and contour plot
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(df_all_outlier_removed['Altitude (Hundreds of Feet)'],
+           df_all_outlier_removed['Total Weight (Tons)'],
+           df_all_outlier_removed['High Explosives Weight (Tons)'],
+           c='r', marker='o')
+ax.set_xlabel('Altitude (Hundreds of Feet)')
+ax.set_ylabel('Total Weight (Tons)')
+ax.set_zlabel('High Explosives Weight (Tons)')
+ax.set_title('3D Plot with Altitude, Total Weight, and High Explosives Weight')
+plt.savefig('3d_plot.png')
+plt.show()
+
+# Cluster map
+plt.title('Cluster Map of Correlation Matrix')
+create_and_save_plot(sns.clustermap, df[numerical_features].corr(), annot=True, cmap='coolwarm')
+
+# Hexbin
+plt.title('Hexbin Plot of Altitude vs Total Weight')
+create_and_save_plot(df_total_weight_and_altitude_outlier_removed.plot.hexbin,
+                     x='Altitude (Hundreds of Feet)',
+                     y='Total Weight (Tons)', gridsize=15, cmap='Blues')
+
+# Strip plot
+plt.title('Strip Plot of Total Weight by Theater of Operations and Target Type')
+create_and_save_plot(sns.stripplot,
+                     x='Theater of Operations', y='Total Weight (Tons)',
+                     hue='Target Type', data=df_top_target_types_total_weight_outlier_removed,
+                     jitter=True, dodge=True)
+
+# Swarm plot
+plt.title('Swarm Plot of Total Weight by Theater of Operations and Target Type')
+create_and_save_plot(sns.swarmplot,
+                     x='Theater of Operations', y='Total Weight (Tons)', hue='Target Type',
+                     data=df_top_target_types_total_weight_outlier_removed.sample(1000),
+                     dodge=True)
