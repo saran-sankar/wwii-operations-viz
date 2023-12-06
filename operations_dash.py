@@ -4,6 +4,7 @@ from dash.dependencies import Input, Output
 import pandas as pd
 import plotly.express as px
 import time
+import base64
 
 # Load the dataset
 df = pd.read_csv('operations.csv')
@@ -17,6 +18,11 @@ df['Year'] = df['Mission Date'].dt.year
 print('Filtering the DataFrame to include only columns with more than 50000 values...')
 useful_columns = df.columns[len(df) - df.isnull().sum() > 50000]
 df = df[useful_columns]
+
+# Configure image
+image_filename = 'PhotoofdevastatedDresden.jpeg'
+encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+
 
 def remove_outliers(df, column_names):
     df_outlier_removed = df.copy()
@@ -46,6 +52,9 @@ app = dash.Dash(__name__)
 # Define the layout of the dashboard
 app.layout = html.Div([
     html.H1("World War II Aerial Bombing Operations Dashboard"),
+
+    html.Img(src='data:image/png;base64,{}'.format(encoded_image.decode()),
+             style={'width': '50%'}),
 
     dcc.Tabs([
         dcc.Tab(label='Count Plots', children=[
