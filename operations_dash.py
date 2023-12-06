@@ -3,6 +3,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import pandas as pd
 import plotly.express as px
+import time
 
 # Load the dataset
 df = pd.read_csv('operations.csv')
@@ -76,9 +77,15 @@ app.layout = html.Div([
 
             html.Br(),
 
-            # Graph components to display the count plots
-            dcc.Graph(id='count-plots'),
-            dcc.Graph(id='pie-plot'),
+            dcc.Loading(
+                id="loading-1",
+                type="default",
+                children=[
+                    # Graph components to display the count plots
+                    html.Div(id="loading-output-1"),
+                    dcc.Graph(id='count-plots'),
+                    dcc.Graph(id='pie-plot'),
+                ]),
         ]),
 
        dcc.Tab(label='Trends', children=[html.H2("Trends in Explosives Weights Over Time for Top Countries"),
@@ -110,8 +117,6 @@ app.layout = html.Div([
 
             # Graph component to display the selected data
             dcc.Graph(id='line-plot'),
-            # Loading component
-            dcc.Loading(id='loading-indicator', type='circle'),
 
             # Text area for displaying additional information
             dcc.Textarea(
@@ -152,6 +157,7 @@ app.layout = html.Div([
             html.Br(),
 
             # Add a Slider for picking a specific year
+            html.Label("Filter by a Specific Year"),
             dcc.Slider(
                 id='year-picker-slider',
                 min=df['Year'].min(),
@@ -265,6 +271,12 @@ def update_scatter_plot(selected_countries, x_feature, y_feature, selected_year)
     )
 
     return fig_scatter
+
+
+@app.callback(Output("loading-output-1", "children"), Input("year-slider", "value"))
+def input_triggers_spinner(value):
+    time.sleep(1)
+    return None
 
 
 # Run the app
