@@ -76,8 +76,9 @@ app.layout = html.Div([
 
             html.Br(),
 
-            # Graph component to display the count plots
-            dcc.Graph(id='count-plots')
+            # Graph components to display the count plots
+            dcc.Graph(id='count-plots'),
+            dcc.Graph(id='pie-plot'),
         ]),
 
        dcc.Tab(label='Trends', children=[html.H2("Trends in Explosives Weights Over Time for Top Countries"),
@@ -150,6 +151,18 @@ app.layout = html.Div([
 
             html.Br(),
 
+            # Add a Slider for picking a specific year
+            dcc.Slider(
+                id='year-picker-slider',
+                min=df['Year'].min(),
+                max=df['Year'].max(),
+                step=1,
+                marks={str(year): str(year) for year in range(df['Year'].min(), df['Year'].max() + 1)},
+                value=df['Year'].max()-2,
+            ),
+
+            html.Br(),
+
             # Graph component to display the selected data
             dcc.Graph(id='scatter-plot')
         ]),
@@ -159,27 +172,38 @@ app.layout = html.Div([
 
 # Define callback to update the count plots based on user inputs
 @app.callback(
-    Output('count-plots', 'figure'),
-    [Input('count-plot-features-dropdown', 'value'),
-     Input('year-slider', 'value')]
+    [
+        Output('count-plots', 'figure'),
+        Output('pie-plot', 'figure')  # Output for the pie plot
+    ],
+    [
+        Input('count-plot-features-dropdown', 'value'),
+        Input('year-slider', 'value')  # Include year slider as an input
+    ]
 )
-def update_count_plots(selected_count_plot_feature, selected_year_range):
-    # Filter the data based on the selected year range
+def update_count_plots(selected_count_plot_feature, selected_years):
     filtered_df = df_all_outlier_removed[
-        (df_all_outlier_removed['Year'] >= selected_year_range[0]) &
-        (df_all_outlier_removed['Year'] <= selected_year_range[1])
+        (df_all_outlier_removed['Year'] >= selected_years[0]) & (df_all_outlier_removed['Year'] <= selected_years[1])
     ]
 
     # Create count plots using Plotly Express
     fig_count_plots = px.histogram(
         filtered_df,
         x=selected_count_plot_feature,
-        title=f'Count Plots for {selected_count_plot_feature} ({selected_year_range[0]} - {selected_year_range[1]})',
+        title=f'Count Plots for {selected_count_plot_feature} ({selected_years[0]} - {selected_years[1]})',
         labels={'value': 'Count'},
         template='plotly_dark'
     )
 
-    return fig_count_plots
+    # Create pie plot
+    fig_pie_plot = px.pie(
+        filtered_df,
+        names=selected_count_plot_feature,
+        title=f'Pie Plot for {selected_count_plot_feature} ({selected_years[0]} - {selected_years[1]})',
+        template='plotly_dark'
+    )
+
+    return fig_count_plots, fig_pie_plot
 
 
 # Define callback to update the graph based on user inputs
@@ -215,14 +239,19 @@ def update_line_plot(selected_country, selected_features):
 # Define callback to update the regression plot based on user inputs
 @app.callback(
     Output('scatter-plot', 'figure'),
-    [Input('country-dropdown-2', 'value'),
-     Input('x-feature-dropdown', 'value'),
-     Input('y-feature-dropdown', 'value')]
+    [
+        Input('country-dropdown-2', 'value'),
+        Input('x-feature-dropdown', 'value'),
+        Input('y-feature-dropdown', 'value'),
+        Input('year-picker-slider', 'value')  # Add the new slider input
+    ]
 )
-def update_scatter_plot(selected_countries, x_feature, y_feature):
-    # Filter data based on selected countries
+def update_scatter_plot(selected_countries, x_feature, y_feature, selected_year):
+    # Filter data based on selected countries and year
     filtered_df_scatter = df_all_outlier_removed[
-        df_all_outlier_removed['Country'].isin(selected_countries)]
+        (df_all_outlier_removed['Country'].isin(selected_countries)) &
+        (df_all_outlier_removed['Year'] == selected_year)
+    ]
 
     # Create scatter plot using Plotly Express
     fig_scatter = px.scatter(
@@ -231,7 +260,7 @@ def update_scatter_plot(selected_countries, x_feature, y_feature):
         y=y_feature,
         color='Country',
         trendline="ols",
-        title=f'Scatter Plot for {y_feature} vs {x_feature} for Selected Countries',
+        title=f'Scatter Plot for {y_feature} vs {x_feature} for Selected Countries in {selected_year}',
         template='plotly_dark'
     )
 
