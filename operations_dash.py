@@ -48,77 +48,120 @@ app = dash.Dash(__name__)
 app.layout = html.Div([
     html.H1("World War II Aerial Bombing Operations Dashboard"),
 
-    html.H2("Trends in Explosives Weights Over Time for Top Countries"),
-    html.H3("Select Country"),
-    # Dropdown for selecting a country
-    dcc.RadioItems(
-        id='country-dropdown',
-        options=[{'label': country, 'value': country} for country in ['USA', 'GREAT BRITAIN', 'NEW ZEALAND']],
-        value=df['Country'].unique()[0],
-        style={'width': '50%'}
-    ),
+    dcc.Tabs([
+            dcc.Tab(label='Count Plots', children=[
+                html.H2("Count Plots for Categorical Features"),
 
-    html.H3("Select Features"),
-    # Checklist for selecting features to display
-    dcc.Checklist(
-        id='feature-checklist',
-        options=[
-            {'label': 'Total Weight (Tons)', 'value': 'Total Weight (Tons)'},
-            {'label': 'High Explosives Weight (Tons)', 'value': 'High Explosives Weight (Tons)'}
-        ],
-        value=['Total Weight (Tons)'],
-        inline=True
-    ),
+                html.H3("Select Features for Count Plots"),
+                # Dropdown for selecting features for count plots
+                dcc.Dropdown(
+                    id='count-plot-features-dropdown',
+                    options=[{'label': feature, 'value': feature}
+                             for feature in df.select_dtypes(include='object').columns],
+                    value=df.select_dtypes(include='object').columns[2],
+                    multi=False,
+                    style={'width': '50%'}
+                ),
 
-    html.Br(),
+                html.Br(),
 
-    # Graph component to display the selected data
-    dcc.Graph(id='line-plot'),
+                # Graph component to display the count plots
+                dcc.Graph(id='count-plots')
+            ]),
 
-    # Loading component
-    dcc.Loading(id='loading-indicator', type='circle'),
+           dcc.Tab(label='Trends', children=[html.H2("Trends in Explosives Weights Over Time for Top Countries"),
+                html.H3("Select Country"),
+                # Dropdown for selecting a country
+                dcc.RadioItems(
+                    id='country-dropdown',
+                    options=[{'label': country, 'value': country}
+                             for country in ['USA', 'GREAT BRITAIN', 'NEW ZEALAND']],
+                    value=df['Country'].unique()[0],
+                    style={'width': '50%'}
+                ),
 
-    # Text area for displaying additional information
-    dcc.Textarea(
-        id='info-text',
-        value='',
-        readOnly=True,
-        style={'width': '100%', 'height': '100px'}
-    ),
+                html.H3("Select Features"),
+                # Checklist for selecting features to display
+                dcc.Checklist(
+                    id='feature-checklist',
+                    options=[
+                        {'label': 'Total Weight (Tons)',
+                         'value': 'Total Weight (Tons)'},
+                        {'label': 'High Explosives Weight (Tons)',
+                         'value': 'High Explosives Weight (Tons)'}
+                    ],
+                    value=['Total Weight (Tons)'],
+                    inline=True
+                ),
 
-    html.H2("Regression Plots for Top Countries"),
-    html.H3("Select Countries"),
-    dcc.Dropdown(
-        id='country-dropdown-2',
-        options=[{'label': country, 'value': country} for country in ['USA', 'GREAT BRITAIN', 'NEW ZEALAND']],
-        value=df['Country'].unique()[0:2],
-        multi=True,
-        style={'width': '50%'}
-    ),
+                html.Br(),
 
-    html.H3("Select Features for Scatter Plot"),
-    # Dropdown for selecting X feature
-    dcc.Dropdown(
-        id='x-feature-dropdown',
-        options=[{'label': feature, 'value': feature} for feature in numerical_features],
-        value='Altitude (Hundreds of Feet)',
-        style={'width': '50%'}
-    ),
+                # Graph component to display the selected data
+                dcc.Graph(id='line-plot'),
+                # Loading component
+                dcc.Loading(id='loading-indicator', type='circle'),
 
-    # Dropdown for selecting Y feature
-    dcc.Dropdown(
-        id='y-feature-dropdown',
-        options=[{'label': feature, 'value': feature} for feature in numerical_features],
-        value='Total Weight (Tons)',
-        style={'width': '50%'}
-    ),
+                # Text area for displaying additional information
+                dcc.Textarea(
+                    id='info-text',
+                    value='',
+                    readOnly=True,
+                    style={'width': '100%', 'height': '100px'}
+                ),
+          ]),
 
-    html.Br(),
+          dcc.Tab(label='Scatter Plots', children=[html.H2("Regression Plots for Top Countries"),
+                html.H3("Select Countries"),
+                dcc.Dropdown(
+                    id='country-dropdown-2',
+                    options=[{'label': country, 'value': country} for country in ['USA', 'GREAT BRITAIN', 'NEW ZEALAND']],
+                    value=df['Country'].unique()[0:2],
+                    multi=True,
+                    style={'width': '50%'}
+                ),
 
-    # Graph component to display the selected data
-    dcc.Graph(id='scatter-plot'),
+                html.H3("Select Features for Scatter Plot"),
+                # Dropdown for selecting X feature
+                dcc.Dropdown(
+                    id='x-feature-dropdown',
+                    options=[{'label': feature, 'value': feature} for feature in numerical_features],
+                    value='Altitude (Hundreds of Feet)',
+                    style={'width': '50%'}
+                ),
+
+                # Dropdown for selecting Y feature
+                dcc.Dropdown(
+                    id='y-feature-dropdown',
+                    options=[{'label': feature, 'value': feature} for feature in numerical_features],
+                    value='Total Weight (Tons)',
+                    style={'width': '50%'}
+                ),
+
+                html.Br(),
+
+                # Graph component to display the selected data
+                dcc.Graph(id='scatter-plot')
+            ]),
+        ]),
 ])
 
+
+# Define callback to update the count plots based on user inputs
+@app.callback(
+    Output('count-plots', 'figure'),
+    [Input('count-plot-features-dropdown', 'value')]
+)
+def update_count_plots(selected_count_plot_feature):
+    # Create count plots using Plotly Express
+    fig_count_plots = px.histogram(
+        df_all_outlier_removed,
+        x=selected_count_plot_feature,
+        title=f'Count Plots for {selected_count_plot_feature}',
+        labels={'value': 'Count'},
+        template='plotly_dark'
+    )
+
+    return fig_count_plots
 
 # Define callback to update the graph based on user inputs
 @app.callback(
