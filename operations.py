@@ -6,6 +6,9 @@ import seaborn as sns
 from prettytable import PrettyTable
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+from sklearn.decomposition import PCA
+from scipy.stats import shapiro
+from sklearn.preprocessing import StandardScaler
 
 
 # Function to create PrettyTable from DataFrame
@@ -29,6 +32,22 @@ def create_and_save_plot(plot_function, *args, **kwargs):
 df = pd.read_csv('operations.csv')
 print(f'There are {len(df)} observations in the dataset')
 print(df.head())
+
+
+# Data Overview
+desc_table = PrettyTable()
+desc_table.field_names = ["Observation", "Description"]
+desc_table.add_row(["Dataset Shape", df.shape])
+desc_table.add_row(["Missing Values", df.isnull().sum()])
+desc_table.add_row(["Summary Statistics", df.describe()])
+print("Description of Data:")
+print(desc_table)
+
+latex_table = desc_table.get_latex_string()
+
+# Save the LaTeX-formatted table to a .tex file
+with open("desc_table.tex", "w") as file:
+    file.write(latex_table)
 
 # Data preprocessing
 
@@ -99,6 +118,120 @@ df_high_explosives_weight_and_altitude_outlier_removed = remove_outliers(
     df_high_explosives_weight_outlier_removed, 'Altitude (Hundreds of Feet)')
 df_all_outlier_removed = remove_outliers(
     df_high_explosives_weight_and_altitude_outlier_removed, 'Total Weight (Tons)')
+
+
+def add_row(table, info):
+    table.add_row([
+        info['Column'],
+        info['Q1'],
+        info['Q3'],
+        info['IQR'],
+        info['Lower Bound'],
+        info['Upper Bound'],
+        info['Number of Outliers']
+    ])
+
+def get_outlier_info(df, column_name):
+    Q1 = df[column_name].quantile(0.25)
+    Q3 = df[column_name].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    # Get outliers
+    outliers = df[(df[column_name] < lower_bound) | (df[column_name] > upper_bound)]
+
+    # Information
+    info = {
+        'Column': column_name,
+        'Q1': Q1,
+        'Q3': Q3,
+        'IQR': IQR,
+        'Lower Bound': lower_bound,
+        'Upper Bound': upper_bound,
+        'Number of Outliers': len(outliers),
+    }
+
+    return info
+
+
+# Get outlier information for each dataframe
+total_weight_info = get_outlier_info(df, 'Total Weight (Tons)')
+total_weight_and_altitude_info = get_outlier_info(df_total_weight_outlier_removed, 'Altitude (Hundreds of Feet)')
+theaters_of_ops_total_weight_info = get_outlier_info(df_top_theaters_of_ops, 'Total Weight (Tons)')
+target_types_total_weight_info = get_outlier_info(df_top_target_types, 'Total Weight (Tons)')
+high_explosives_weight_info = get_outlier_info(df, 'High Explosives Weight (Tons)')
+high_explosives_weight_and_altitude_info = get_outlier_info(df_high_explosives_weight_outlier_removed, 'Altitude (Hundreds of Feet)')
+all_outlier_info = get_outlier_info(df_all_outlier_removed, 'Total Weight (Tons)')
+
+# Create PrettyTable
+outlier_table = PrettyTable()
+outlier_table.field_names = ["Column", "Q1", "Q3", "IQR", "Lower Bound", "Upper Bound", "Num Outliers"]
+
+# Add rows for each dataframe
+add_row(outlier_table, total_weight_info)
+add_row(outlier_table, total_weight_and_altitude_info)
+add_row(outlier_table, theaters_of_ops_total_weight_info)
+add_row(outlier_table, target_types_total_weight_info)
+add_row(outlier_table, high_explosives_weight_info)
+add_row(outlier_table, high_explosives_weight_and_altitude_info)
+add_row(outlier_table, all_outlier_info)
+
+# Print the PrettyTable
+print('Outlier info:')
+print(outlier_table)
+
+
+# Principal Component Analysis (PCA)
+def perform_pca(dataframe):
+    features = dataframe[numerical_features]
+
+    scaler = StandardScaler()
+    standardized_features = scaler.fit_transform(features)
+
+    pca = PCA()
+    principal_components = pca.fit_transform(standardized_features)
+
+    condition_number = np.linalg.cond(standardized_features)
+    singular_values = pca.singular_values_
+
+    return principal_components, condition_number, singular_values
+
+
+pca_result, condition_number, singular_values = perform_pca(df)
+print(f"Condition Number: {condition_number}")
+print(f"Singular Values: {singular_values}")
+
+
+# Normality test
+def perform_normality_test(data):
+    stat, p_value = shapiro(data['High Explosives Weight (Tons)'])
+    return stat, p_value
+
+
+normality_stat, normality_p_value = perform_normality_test(df)
+print(f"Normality Test Statistic: {normality_stat}")
+print(f"P-Value: {normality_p_value}")
+
+# Heatmap & Pearson correlation coefficient matrix
+plt.title('Pearson Correlation Coefficient Matrix')
+correlation_matrix = df[numerical_features].corr()
+print(correlation_matrix)
+create_and_save_plot(sns.heatmap, correlation_matrix, annot=True, cmap='coolwarm')
+
+# Statistics: Multivariate Kernel Density Estimate
+scaler = StandardScaler()
+df_standardized = scaler.fit_transform(
+    remove_outliers(df, numerical_features)[numerical_features])
+
+plt.figure(figsize=(10, 8))
+plt.title('Multivariate Kernel Density Estimate')
+for i in range(df_standardized.shape[1]):
+    sns.kdeplot(data=df_standardized[:, i], fill=True, label=numerical_features[i])
+
+plt.legend()
+plt.savefig('standardized_multivariate_kde.png')
+plt.show()
 
 
 # Data Visualization
